@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>VS Code Web</title>
+    <!-- 引入基础样式 -->
+    <link rel="stylesheet" href="./vs/workbench/workbench.web.main.css">
+</head>
+<body class="web" style="margin: 0; padding: 0; overflow: hidden; height: 100vh;">
+    <div id="vscode-workbench"></div>
+
+    <script>
+        // 配置 RequireJS (AMD 加载器)
+        window.MonacoEnvironment = {
+            baseUrl: './'
+        };
+    </script>
+    <!-- 加载 Loader 及核心 JS -->
+    <script src="./vs/loader.js"></script>
+    <script>
+        require.config({
+            paths: {
+                'vs': './vs'
+            }
+        });
+        require(['vs/workbench/workbench.web.main'], function() {
+            // 核心打包代码会自动挂载并初始化 workbench
+        });
+    </script>
+</body>
+</html>
