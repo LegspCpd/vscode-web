@@ -26,6 +26,31 @@
             // 资源根路径
             globalThis._VSCODE_FILE_ROOT = window.location.origin + '/';
 
+            // ---------- 语言检测（简体 / 繁体中文 / 系统自动）----------
+            // 根据浏览器/系统语言自动选择界面语言，并设置 _VSCODE_NLS_LANGUAGE。
+            // VS Code 会根据该值自动到扩展市场加载对应语言包扩展（tag:lp-<locale>）。
+            function detectLocale() {
+                const langs = navigator.languages && navigator.languages.length
+                    ? navigator.languages
+                    : [navigator.language || 'en-US'];
+                const raw = (langs[0] || '').toLowerCase().replace('_', '-');
+                // 服务器/URL 可覆盖：?lang=zh-cn / ?lang=zh-tw / ?lang=en
+                const q = new URLSearchParams(window.location.search).get('lang');
+                if (q) {
+                    const ql = q.toLowerCase();
+                    if (ql.startsWith('zh')) { return ql.includes('tw') || ql.includes('hant') ? 'zh-tw' : 'zh-cn'; }
+                    if (ql === 'en') { return 'en'; }
+                    return ql;
+                }
+                if (raw.includes('zh')) {
+                    return (raw.includes('tw') || raw.includes('hant') || raw.includes('hk')) ? 'zh-tw' : 'zh-cn';
+                }
+                return 'en';
+            }
+            const locale = detectLocale();
+            // 默认语言（en）不设置，走英文回退；中文设置 _VSCODE_NLS_LANGUAGE 触发语言包加载
+            globalThis._VSCODE_NLS_LANGUAGE = locale;
+
             const container = document.getElementById('vscode-workbench');
 
             // 产品配置：名称 + 扩展市场（Open VSX）
@@ -35,21 +60,25 @@
                 applicationName: 'code-web',
                 dataFolderName: '.vscode-web',
                 urlProtocol: 'code-web',
-                version: '1.0.0',
+                // 版本号必须与真实构建一致（1.133.0），否则扩展的 engines.vscode
+                // 兼容性检查（>= 某版本）会因为版本过低而拒绝安装！
+                version: '1.133.0',
                 commit: undefined,
                 quality: 'stable',
+                // Open VSX 官方推荐的 VS Code 兼容端点（Use Open VSX in VS Code）
+                // 必须使用 /vscode/unpkg 作为资源模板，否则扩展 manifest 抓取失败、无法安装！
                 extensionsGallery: {
                     serviceUrl: 'https://open-vsx.org/vscode/gallery',
-                    // Open VSX 没有公开的 control manifest（扩展控制清单）端点，
-                    // 直接指向 open-vsx.org 的端点会 404/400 并触发
-                    // 'Could not get extensions report' 报错、中断内置扩展加载。
-                    // 因此托管一个本地的空控制清单文件（extensions-control.json），
-                    // 返回 200 + 合法 JSON，让 checkAdditionalBuiltinExtensions 走空清单分支。
-                    controlUrl: './extensions-control.json',
-                    extensionUrlTemplate: 'https://open-vsx.org/vscode/extension/{publisher}/{name}/{version}',
-                    resourceUrlTemplate: 'https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/{path}',
-                    nlsBaseUrl: ''
-                }
+                    itemUrl: 'https://open-vsx.org/vscode/item',
+                    // 不设置 controlUrl：Open VSX 没有 control manifest 端点，
+                    // 不设置时 getExtensionsControlManifest 直接返回空清单，不报错。
+                    resourceUrlTemplate: 'https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}',
+                    extensionUrlTemplate: 'https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest'
+                },
+                // 信任 open-vsx，避免打开扩展详情时被链接保护拦截
+                linkProtectionTrustedDomains: [
+                    'https://open-vsx.org'
+                ]
             };
 
             // GitHub / Git 能力说明：
@@ -59,6 +88,18 @@
             //   - GitHub   ：搜索 “GitHub Pull Requests” 安装（依赖 GitHub 认证）
             // 注意 GitHub.remotehub（打开 GitHub 仓库）未发布到 Open VSX，
             // 打开仓库主要依靠克隆（git 命令）或 GitHub PR 扩展。
+
+            // ---------- 中文界面：内置语言包扩展 ----------
+            // 根据检测到的语言，把对应的微软语言包扩展作为“内置扩展”加载，
+            // 从而让工作台/编辑器 UI 变成简体/繁体中文。
+            const languagePackByLocale = {
+                'zh-cn': 'ms-ceintl.vscode-language-pack-zh-hans',
+                'zh-tw': 'ms-ceintl.vscode-language-pack-zh-hant'
+            };
+            const localeLanguagePack = languagePackByLocale[locale];
+            const additionalBuiltinExtensions = localeLanguagePack
+                ? [localeLanguagePack]
+                : [];
 
             // 密钥存储 provider（用于安全持久化 GitHub token 等敏感信息）
             // 基于浏览器 IndexedDB 的简单实现，避免 token 裸露在 localStorage。
@@ -145,6 +186,9 @@
                             return true;
                         }
                     },
+
+                    // 中文界面：内置语言包扩展（zh-cn / zh-tw）
+                    additionalBuiltinExtensions,
 
                     // 密钥存储（GitHub token 持久化）
                     secretStorageProvider,
