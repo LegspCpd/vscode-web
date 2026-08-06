@@ -8,16 +8,13 @@
         html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #1e1e1e; }
         #vscode-workbench { width: 100%; height: 100%; }
     </style>
+    <!-- 引入正确的路径（加上 out/ 或对应的真实层级） -->
+    <link rel="stylesheet" href="./out/vs/workbench/workbench.web.main.css">
 </head>
 <body class="web">
     <div id="vscode-workbench"></div>
 
-    <!-- 1. 加载官方打包出来的核心 CSS -->
-    <link rel="stylesheet" href="./vs/workbench/workbench.web.main.css">
-
-    <!-- 2. 初始化全局配置对象 (设置必要的配置参数，避免 404/加载报错) -->
     <script>
-        window._VSCODE_FILE_ROOT = unescape(window.location.pathname).replace(/\/index\.html$/, '');
         window.product = {
             nameShort: "Code - Web",
             nameLong: "Visual Studio Code Web",
@@ -26,12 +23,8 @@
             urlProtocol: "code-web",
             webEndpointUrl: window.location.origin
         };
-        window.vscode = {
-            process: { env: {} }
-        };
     </script>
-
-    <!-- 3. 直接加载主工程文件 (内部包含模块初始化，不需要外部 require) -->
-    <script src="./vs/workbench/workbench.web.main.js"></script>
+    <!-- 指向真实的 js 路径 -->
+    <script src="./out/vs/workbench/workbench.web.main.js"></script>
 </body>
 </html>
