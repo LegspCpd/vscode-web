@@ -8,23 +8,149 @@
         html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #1e1e1e; }
         #vscode-workbench { width: 100%; height: 100%; }
     </style>
-    <!-- 引入正确的路径（加上 out/ 或对应的真实层级） -->
-    <link rel="stylesheet" href="./out/vs/workbench/workbench.web.main.css">
+    <!-- 工作台样式（注意：本裁剪版实际文件名是 workbench.web.main.internal.css） -->
+    <link rel="stylesheet" href="./vs/workbench/workbench.web.main.internal.css">
 </head>
 <body class="web">
     <div id="vscode-workbench"></div>
 
-    <script>
-        window.product = {
-            nameShort: "Code - Web",
-            nameLong: "Visual Studio Code Web",
-            applicationName: "code-web",
-            dataFolderName: ".vscode-web",
-            urlProtocol: "code-web",
-            webEndpointUrl: window.location.origin
-        };
+    <!-- NLS 消息表：必须先于 workbench 加载（它设置 globalThis._VSCODE_NLS_MESSAGES） -->
+    <script src="./nls.messages.js"></script>
+
+    <!-- 启动脚本：本构建通过 ES Module 调用导出的 create() 来启动工作台 -->
+    <script type="module">
+        (async function () {
+            // 资源根路径
+            globalThis._VSCODE_FILE_ROOT = window.location.origin + '/';
+
+            const container = document.getElementById('vscode-workbench');
+
+            // 产品配置：名称 + 扩展市场（Open VSX）
+            const productConfiguration = {
+                nameShort: 'Code - Web',
+                nameLong: 'Visual Studio Code Web',
+                applicationName: 'code-web',
+                dataFolderName: '.vscode-web',
+                urlProtocol: 'code-web',
+                version: '1.0.0',
+                commit: undefined,
+                quality: 'stable',
+                extensionsGallery: {
+                    serviceUrl: 'https://open-vsx.org/vscode/gallery',
+                    // Open VSX 没有公开的 control manifest（扩展控制清单）端点，
+                    // 直接指向 open-vsx.org 的端点会 404/400 并触发
+                    // 'Could not get extensions report' 报错、中断内置扩展加载。
+                    // 因此托管一个本地的空控制清单文件（extensions-control.json），
+                    // 返回 200 + 合法 JSON，让 checkAdditionalBuiltinExtensions 走空清单分支。
+                    controlUrl: './extensions-control.json',
+                    extensionUrlTemplate: 'https://open-vsx.org/vscode/extension/{publisher}/{name}/{version}',
+                    resourceUrlTemplate: 'https://open-vsx.org/vscode/asset/{publisher}/{name}/{version}/{path}',
+                    nlsBaseUrl: ''
+                }
+            };
+
+            // GitHub / Git 能力说明：
+            // 这个裁剪版没有内置扩展目录，Git / GitHub 能力需要通过扩展获得。
+            // 扩展市场（Open VSX）已配置好，用户可直接在“扩展”面板搜索并安装：
+            //   - Git      ：搜索 “git” 安装 “Git (built-in)”
+            //   - GitHub   ：搜索 “GitHub Pull Requests” 安装（依赖 GitHub 认证）
+            // 注意 GitHub.remotehub（打开 GitHub 仓库）未发布到 Open VSX，
+            // 打开仓库主要依靠克隆（git 命令）或 GitHub PR 扩展。
+
+            // 密钥存储 provider（用于安全持久化 GitHub token 等敏感信息）
+            // 基于浏览器 IndexedDB 的简单实现，避免 token 裸露在 localStorage。
+            const secretStorageProvider = (() => {
+                const DB = 'vscode-web-secrets';
+                const STORE = 'secrets';
+                let dbPromise;
+                function db() {
+                    if (!dbPromise) {
+                        dbPromise = new Promise((resolve, reject) => {
+                            const req = indexedDB.open(DB, 1);
+                            req.onupgradeneeded = () => {
+                                if (!req.result.objectStoreNames.contains(STORE)) {
+                                    req.result.createObjectStore(STORE);
+                                }
+                            };
+                            req.onsuccess = () => resolve(req.result);
+                            req.onerror = () => reject(req.error);
+                        });
+                    }
+                    return dbPromise;
+                }
+                return {
+                    async get(key) {
+                        const d = await db();
+                        return new Promise((resolve, reject) => {
+                            const tx = d.transaction(STORE, 'readonly');
+                            const rq = tx.objectStore(STORE).get(key);
+                            rq.onsuccess = () => resolve(rq.result || undefined);
+                            rq.onerror = () => reject(rq.error);
+                        });
+                    },
+                    async set(key, value) {
+                        const d = await db();
+                        return new Promise((resolve, reject) => {
+                            const tx = d.transaction(STORE, 'readwrite');
+                            tx.objectStore(STORE).put(value, key);
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
+                    },
+                    async delete(key) {
+                        const d = await db();
+                        return new Promise((resolve, reject) => {
+                            const tx = d.transaction(STORE, 'readwrite');
+                            tx.objectStore(STORE).delete(key);
+                            tx.oncomplete = () => resolve();
+                            tx.onerror = () => reject(tx.error);
+                        });
+                    }
+                };
+            })();
+
+            // 动态 import 工作台主模块并启动
+            const { create } = await import('./vs/workbench/workbench.web.main.internal.js');
+
+            try {
+                create(container, {
+                    // 产品配置（名称 + 扩展市场等）
+                    productConfiguration,
+
+                    // 工作区提供者：初始为空窗口（欢迎页）。
+                    workspaceProvider: {
+                        workspace: { workspaceUri: undefined, folderUri: undefined },
+                        trusted: true,
+                        async open(workspace, options) {
+                            return true;
+                        }
+                    },
+
+                    // 密钥存储（GitHub token 持久化）
+                    secretStorageProvider,
+
+                    // 额外的信任域（避免链接被拦截）
+                    additionalTrustedDomains: [
+                        'open-vsx.org',
+                        'github.com',
+                        '*.github.com',
+                        'raw.githubusercontent.com',
+                        '*.vscode-cdn.net',
+                        '*.vscode-unpkg.net'
+                    ],
+
+                    // 打开本地文件时浏览器 File System Access API 端点
+                    // （VSCode 内部在支持该 API 的浏览器上会自动注册 file: scheme provider）
+                    webviewEndpoint: undefined // 使用内置默认的 vscode-cdn.net webview 端点
+                });
+
+                console.log('[vscode-web] workbench.create() invoked.');
+            } catch (err) {
+                console.error('[vscode-web] Failed to start workbench:', err);
+                container.innerHTML = '<div style="color:#fff;font-family:sans-serif;padding:20px;">启动失败：' +
+                    String(err && err.message ? err.message : err) + '</div>';
+            }
+        })();
     </script>
-    <!-- 指向真实的 js 路径 -->
-    <script src="./out/vs/workbench/workbench.web.main.js"></script>
 </body>
 </html>
