@@ -10,6 +10,57 @@
     <style>
         html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #1e1e1e; }
         #vscode-workbench { width: 100%; height: 100%; }
+        /* ================= 响应式菜单：窄屏折叠为汉堡 ================= */
+        .menu-hamburger {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 4px; left: 6px;
+            width: 34px; height: 28px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            z-index: 13001;
+        }
+        .menu-hamburger:hover { background: rgba(255,255,255,0.1); }
+        /* 三条横线（CSS 伪元素） */
+        .menu-hamburger > span,
+        .menu-hamburger > span::before,
+        .menu-hamburger > span::after {
+            content: "";
+            display: block;
+            width: 18px; height: 2px;
+            background: #cccccc;
+            border-radius: 1px;
+            transition: transform .15s ease, opacity .15s ease;
+        }
+        .menu-hamburger > span { position: relative; }
+        .menu-hamburger > span::before { position: absolute; top: -6px; left: 0; }
+        .menu-hamburger > span::after { position: absolute; top: 6px; left: 0; }
+        /* 窄屏：隐藏完整菜单栏，仅显示汉堡 */
+        @media (max-width: 760px) {
+            .menu-hamburger { display: flex; }
+            .titlebar-left .menubar { display: none !important; }
+            /* 展开态：汉堡下方显示菜单下拉 */
+            body.menu-open .titlebar-left .menubar {
+                display: flex !important;
+                flex-wrap: wrap;
+                position: fixed;
+                top: 34px; left: 6px;
+                max-width: 220px;
+                background: #252526;
+                border: 1px solid #3c3c3c;
+                border-radius: 4px;
+                padding: 4px;
+                z-index: 13000;
+            }
+            body.menu-open .menubar .menubar-menu-button {
+                flex: 0 0 auto;
+                margin: 2px;
+            }
+        }
     </style>
     <!-- 工作台样式（注意：本裁剪版实际文件名是 workbench.web.main.internal.css） -->
     <link rel="stylesheet" href="./vs/workbench/workbench.web.main.internal.css">
@@ -17,8 +68,45 @@
 <body class="web">
     <div id="vscode-workbench"></div>
 
-    <!-- NLS 消息表：必须先于 workbench 加载（它设置 globalThis._VSCODE_NLS_MESSAGES） -->
-    <script src="./nls.messages.js"></script>
+    <!-- 窄屏响应式汉堡菜单按钮（大屏自动隐藏） -->
+    <button class="menu-hamburger" id="menu-hamburger" aria-label="菜单" title="菜单" type="button">
+        <span></span>
+    </button>
+
+    <!-- 语言检测（同步，先于消息表加载）：根据系统/浏览器语言选择简体/繁体中文或英文 -->
+    <script>
+        (function () {
+            try {
+                var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en-US'];
+                var raw = (langs[0] || '').toLowerCase().replace('_', '-');
+                var q = new URLSearchParams(window.location.search).get('lang');
+                var loc;
+                if (q) {
+                    var ql = q.toLowerCase();
+                    if (ql.indexOf('zh') === 0) { loc = (ql.indexOf('tw') > 0 || ql.indexOf('hant') > 0) ? 'zh-tw' : 'zh-cn'; }
+                    else if (ql === 'en') { loc = 'en'; }
+                    else { loc = ql; }
+                } else if (raw.indexOf('zh') === 0) {
+                    loc = (raw.indexOf('tw') > 0 || raw.indexOf('hant') > 0 || raw.indexOf('hk') > 0) ? 'zh-tw' : 'zh-cn';
+                } else {
+                    // 默认就是简体中文（除非显式指定 ?lang=en / ?lang=zh-tw）
+                    loc = 'zh-cn';
+                }
+                // 关键：设置全局语言，供后续 module 脚本复用
+                window.__VSCODE_LOCALE__ = loc;
+                // 根据语言加载对应的 NLS 消息表（每个文件设置 globalThis._VSCODE_NLS_MESSAGES）
+                if (loc === 'zh-cn') {
+                    document.write('<script src="./nls.messages.zh-cn.js"><\/script>');
+                } else if (loc === 'zh-tw') {
+                    document.write('<script src="./nls.messages.zh-tw.js"><\/script>');
+                } else {
+                    document.write('<script src="./nls.messages.js"><\/script>');
+                }
+            } catch (e) {
+                document.write('<script src="./nls.messages.js"><\/script>');
+            }
+        })();
+    </script>
 
     <!-- 启动脚本：本构建通过 ES Module 调用导出的 create() 来启动工作台 -->
     <script type="module">
@@ -26,29 +114,8 @@
             // 资源根路径
             globalThis._VSCODE_FILE_ROOT = window.location.origin + '/';
 
-            // ---------- 语言检测（简体 / 繁体中文 / 系统自动）----------
-            // 根据浏览器/系统语言自动选择界面语言，并设置 _VSCODE_NLS_LANGUAGE。
-            // VS Code 会根据该值自动到扩展市场加载对应语言包扩展（tag:lp-<locale>）。
-            function detectLocale() {
-                const langs = navigator.languages && navigator.languages.length
-                    ? navigator.languages
-                    : [navigator.language || 'en-US'];
-                const raw = (langs[0] || '').toLowerCase().replace('_', '-');
-                // 服务器/URL 可覆盖：?lang=zh-cn / ?lang=zh-tw / ?lang=en
-                const q = new URLSearchParams(window.location.search).get('lang');
-                if (q) {
-                    const ql = q.toLowerCase();
-                    if (ql.startsWith('zh')) { return ql.includes('tw') || ql.includes('hant') ? 'zh-tw' : 'zh-cn'; }
-                    if (ql === 'en') { return 'en'; }
-                    return ql;
-                }
-                if (raw.includes('zh')) {
-                    return (raw.includes('tw') || raw.includes('hant') || raw.includes('hk')) ? 'zh-tw' : 'zh-cn';
-                }
-                return 'en';
-            }
-            const locale = detectLocale();
-            // 默认语言（en）不设置，走英文回退；中文设置 _VSCODE_NLS_LANGUAGE 触发语言包加载
+            // ---------- 语言：复用上面同步检测的结果（默认 zh-cn 简体中文）----------
+            const locale = window.__VSCODE_LOCALE__ || 'zh-cn';
             globalThis._VSCODE_NLS_LANGUAGE = locale;
 
             const container = document.getElementById('vscode-workbench');
@@ -89,17 +156,9 @@
             // 注意 GitHub.remotehub（打开 GitHub 仓库）未发布到 Open VSX，
             // 打开仓库主要依靠克隆（git 命令）或 GitHub PR 扩展。
 
-            // ---------- 中文界面：内置语言包扩展 ----------
-            // 根据检测到的语言，把对应的微软语言包扩展作为“内置扩展”加载，
-            // 从而让工作台/编辑器 UI 变成简体/繁体中文。
-            const languagePackByLocale = {
-                'zh-cn': 'ms-ceintl.vscode-language-pack-zh-hans',
-                'zh-tw': 'ms-ceintl.vscode-language-pack-zh-hant'
-            };
-            const localeLanguagePack = languagePackByLocale[locale];
-            const additionalBuiltinExtensions = localeLanguagePack
-                ? [localeLanguagePack]
-                : [];
+            // 说明：中文界面由上方根据语言加载的 nls.messages.zh-cn.js / zh-tw.js
+            // 消息表直接提供（94.8% 覆盖），无需额外的内置语言包扩展，
+            // 从而避免语言包作为内置扩展加载时反复请求不存在的 package.nls.json。
 
             // 密钥存储 provider（用于安全持久化 GitHub token 等敏感信息）
             // 基于浏览器 IndexedDB 的简单实现，避免 token 裸露在 localStorage。
@@ -161,6 +220,12 @@
                     // 产品配置（名称 + 扩展市场等）
                     productConfiguration,
 
+                    // 默认设置：顶部显示完整菜单栏（文件/编辑/视图...）
+                    // 窄屏响应式折叠为汉堡菜单由下方自定义 CSS 处理
+                    configurationDefaults: {
+                        'window.menuBarVisibility': 'classic'
+                    },
+
                     // 默认暗色主题（web 端默认是亮色 LIGHT，必须显式设为 dark）
                     // 并在 loading 阶段直接应用暗色初始颜色，避免白屏/白色闪屏
                     initialColorTheme: {
@@ -187,9 +252,6 @@
                         }
                     },
 
-                    // 中文界面：内置语言包扩展（zh-cn / zh-tw）
-                    additionalBuiltinExtensions,
-
                     // 密钥存储（GitHub token 持久化）
                     secretStorageProvider,
 
@@ -209,6 +271,22 @@
                 });
 
                 console.log('[vscode-web] workbench.create() invoked.');
+
+                // 窄屏汉堡菜单交互：点击展开/收起，点击外部关闭
+                const hamburger = document.getElementById('menu-hamburger');
+                if (hamburger) {
+                    hamburger.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        document.body.classList.toggle('menu-open');
+                    });
+                    document.addEventListener('click', () => {
+                        document.body.classList.remove('menu-open');
+                    });
+                    // 点击菜单项后关闭下拉
+                    document.querySelectorAll('.menubar-menu-button').forEach(el => {
+                        el.addEventListener('click', () => document.body.classList.remove('menu-open'));
+                    });
+                }
             } catch (err) {
                 console.error('[vscode-web] Failed to start workbench:', err);
                 container.innerHTML = '<div style="color:#fff;font-family:sans-serif;padding:20px;">启动失败：' +

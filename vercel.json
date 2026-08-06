@@ -28,7 +28,7 @@
       "destination": "/usb2.ico"
     },
     {
-      "source": "/((?!.*\\.(js|js\\.map|css|css\\.map|json|map|png|svg|ttf|woff|woff2|ico|html|wasm)$)(?!vs/|media/|nls\\.).*)",
+      "source": "/((?!.*\\.(js|js\\.map|css|css\\.map|json|map|png|svg|ttf|woff|woff2|ico|html|wasm)$)(?!vs/|media/|extensions/|nls\\.).*)",
       "destination": "/index.html"
     }
   ]
