@@ -46,7 +46,9 @@ class GitHubViewProvider {
         const headers = {};
         if (token) headers['Authorization'] = 'Bearer ' + token;
         if (body !== undefined) headers['Content-Type'] = 'application/json';
-        const base = new URL('/api/proxy', (typeof location !== 'undefined' && location.origin) || 'http://localhost').href;
+        // 用扩展 URI 推断站点 origin（扩展运行在 web worker，无 location 全局变量，
+        // 不能依赖 location.origin；extensionUri 形如 https://<site>/extensions/gh-views）
+        const base = new URL('/api/proxy', this._ctx.extensionUri).href;
         try {
             const res = await fetch(base + url, {
                 method: method || 'GET',
@@ -64,10 +66,10 @@ class GitHubViewProvider {
 
     async _login() {
         const clientId = 'Ov23liDtRHzVSs0Pued6';
-        const origin = (typeof location !== 'undefined' && location.origin) || '';
+        // 从扩展 URI 推断站点 origin（不依赖 worker 的 location）
+        const origin = new URL(this._ctx.extensionUri).origin;
         const state = 'gh_' + Date.now();
         // redirect_uri 保持干净 URL（无 query）。GitHub 会在其后追加 ?code=..&state=..
-        // origin/state 不再编码进 redirect_uri，避免 GitHub 追加参数时 URL 编码错乱。
         const redirectUri = origin + '/api/auth/callback';
         const url = 'https://github.com/login/oauth/authorize?client_id=' + clientId +
             '&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=repo&state=' + state;
