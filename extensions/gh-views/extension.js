@@ -33,7 +33,7 @@ class GitHubViewProvider {
                     wv.postMessage({ type: 'logoutDone' });
                 } else if (msg.type === 'getToken') {
                     const t = await this._ctx.secrets.get('gh_auth');
-                    wv.postMessage({ type: 'getTokenResult', token: t || null });
+                    wv.postMessage({ type: 'getTokenResult', id: msg.id, token: t || null });
                 }
             } catch (e) {
                 wv.postMessage({ type: 'error', message: String((e && e.message) || e) });
@@ -290,6 +290,9 @@ function getHtml() {
     if (msg.type === 'apiResult' && pending[msg.id]) {
       var cb = pending[msg.id]; delete pending[msg.id];
       cb({ ok: msg.ok, status: msg.status, data: msg.data });
+    } else if (msg.type === 'getTokenResult' && pending[msg.id]) {
+      var cb = pending[msg.id]; delete pending[msg.id];
+      cb({ token: msg.token });
     }
   });
 
