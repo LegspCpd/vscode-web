@@ -217,7 +217,26 @@
                     // 默认设置：顶部显示完整菜单栏（文件/编辑/视图...）
                     // 窄屏响应式折叠为汉堡菜单由下方自定义 CSS 处理
                     configurationDefaults: {
-                        'window.menuBarVisibility': 'classic'
+                        'window.menuBarVisibility': 'classic',
+                        // 提供 TextMate 语法高亮的颜色规则（VS Code Dark+ 风格）
+                        // 该裁剪版主题缺少 tokenColors，这里通过 tokenColorCustomizations 注入
+                        'editor.tokenColorCustomizations': {
+                            'textMateRules': [
+                                { "scope": "comment", "settings": { "foreground": "#6A9955" } },
+                                { "scope": ["keyword", "keyword.control", "keyword.operator", "storage", "storage.type"], "settings": { "foreground": "#569CD6" } },
+                                { "scope": ["string", "string.quoted", "string.quoted.single", "string.quoted.double", "string.template"], "settings": { "foreground": "#CE9178" } },
+                                { "scope": ["constant.numeric", "constant.language", "constant.character", "constant.other"], "settings": { "foreground": "#B5CEA8" } },
+                                { "scope": ["entity.name.function", "entity.name.function.member", "support.function"], "settings": { "foreground": "#DCDCAA" } },
+                                { "scope": ["entity.name.type", "entity.name.class", "entity.other.inherited-class", "support.class", "support.type"], "settings": { "foreground": "#4EC9B0" } },
+                                { "scope": ["variable", "variable.other", "variable.parameter", "variable.other.member"], "settings": { "foreground": "#9CDCFE" } },
+                                { "scope": "operator", "settings": { "foreground": "#D4D4D4" } },
+                                { "scope": "string.regexp", "settings": { "foreground": "#D16969" } },
+                                { "scope": "punctuation", "settings": { "foreground": "#D4D4D4" } },
+                                { "scope": ["constant.language.null", "constant.language.boolean"], "settings": { "foreground": "#569CD6" } },
+                                { "scope": ["invalid", "invalid.illegal"], "settings": { "foreground": "#F48771" } },
+                                { "scope": "meta.embedded", "settings": { "foreground": "#D4D4D4" } }
+                            ]
+                        }
                     },
 
                     // 默认暗色主题（web 端默认是亮色 LIGHT，必须显式设为 dark）
