@@ -1,0 +1,38 @@
+{
+  "name": "gh-native-views",
+  "displayName": "GitHub 原生视图",
+  "description": "将 GitHub 远程仓库功能注入 VS Code 原生侧边栏视图",
+  "version": "1.0.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "extensionKind": [
+    "web"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "browser": "./extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "githubrepos",
+          "title": "GitHub",
+          "icon": "$(github)"
+        }
+      ]
+    },
+    "views": {
+      "githubrepos": [
+        {
+          "id": "githubReposView",
+          "name": "GitHub 仓库",
+          "type": "webview"
+        }
+      ]
+    }
+  }
+}

@@ -25,10 +25,10 @@
   "rewrites": [
     {
       "source": "/favicon.ico",
-      "destination": "/usb2.ico"
+      "destination": "/code-stable.png"
     },
     {
-      "source": "/((?!api/|vs/|media/|nls\\.|usb2\\.ico|index\\.html).*)",
+      "source": "/((?!api/|vs/|media/|nls\\.|usb2\\.ico|code-stable\\.png|index\\.html).*)",
       "destination": "/index.html"
     }
   ]

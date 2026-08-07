@@ -12,8 +12,10 @@ function html(token, origin) {
     (function(){
       try {
         var t = ${safeToken};
-        // 写入统一的会话 key（与前端 index.html 的 TOKEN_KEY='gh_auth' 一致）
+        // 统一的会话 key（旧 initGitHub 用）
         localStorage.setItem('gh_auth', JSON.stringify({ token: t, time: Date.now() }));
+        // secretStorageProvider 键：供扩展宿主 context.secrets.get('gh_auth') 读取
+        localStorage.setItem('gh_secret_gh_auth', t || '');
       } catch (e) {}
       window.location.replace(${JSON.stringify(origin)} + "/");
     })();
