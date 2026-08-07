@@ -1,0 +1,27 @@
+{
+  "name": "vscode-web-docs",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "keywords": [
+    "vscode-web",
+    "vscode",
+    "vercel",
+    "docs"
+  ],
+  "author": "LegspCpd",
+  "license": "MIT",
+  "description": "VS Code Web 部署文档站（VitePress）",
+  "devDependencies": {
+    "vite": "^7.3.1",
+    "vitepress": "^1.6.4"
+  },
+  "dependencies": {
+    "viewerjs": "^1.11.7",
+    "vitepress-plugin-image-viewer": "^1.1.6"
+  }
+}

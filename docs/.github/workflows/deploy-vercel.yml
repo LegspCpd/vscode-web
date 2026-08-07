@@ -1,0 +1,40 @@
+name: 🚀 部署 VS Code Web 文档站到 Vercel
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: 🏗️ 构建并部署 / Build and Deploy
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+    steps:
+      - name: 🚚 检出代码 / Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙ 设置 pnpm / Set up pnpm
+        uses: pnpm/action-setup@v4.1.0
+        with:
+          version: 9
+
+      - name: ⚙ 设置 Node.js / Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: "./pnpm-lock.yaml"
+
+      - name: 📦 安装依赖 / Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🚀 部署到 Vercel / Deploy to Vercel
+        run: |
+          npx vercel pull --yes --environment=production --token=${{ env.VERCEL_TOKEN }}
+          npx vercel build --prod --token=${{ env.VERCEL_TOKEN }}
+          npx vercel deploy --prebuilt --prod --token=${{ env.VERCEL_TOKEN }}
