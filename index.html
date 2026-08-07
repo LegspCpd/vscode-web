@@ -257,11 +257,38 @@
                     },
 
                     // 工作区提供者：初始为空窗口（欢迎页）。
+                    // 注意：空工作区必须返回 false，让 workbench 保持当前窗口并
+                    // 从本地存储恢复已保存的 UI 状态（打开的文件夹/编辑器/布局），
+                    // 否则刷新后会丢失工作区（之前一直返回 true 导致该 bug）。
                     workspaceProvider: {
                         workspace: { workspaceUri: undefined, folderUri: undefined },
                         trusted: true,
                         async open(workspace, options) {
-                            return true;
+                            // diff 模式：交给 workbench 在新窗口处理
+                            if (options && options.diff) { return true; }
+
+                            var folderUri = workspace && workspace.folderUri;
+                            var workspaceUri = workspace && workspace.workspaceUri;
+
+                            // 打开文件夹：更新 URL（带 folder 参数）并重载，
+                            // 使刷新后能通过 URL 恢复该文件夹工作区
+                            if (folderUri) {
+                                var folderTarget = window.location.origin + window.location.pathname +
+                                    '?folder=' + encodeURIComponent(folderUri.toString());
+                                window.location.replace(folderTarget);
+                                return true;
+                            }
+
+                            // 打开工作区文件：更新 URL（带 workspace 参数）并重载
+                            if (workspaceUri) {
+                                var wsTarget = window.location.origin + window.location.pathname +
+                                    '?workspace=' + encodeURIComponent(workspaceUri.toString());
+                                window.location.replace(wsTarget);
+                                return true;
+                            }
+
+                            // 空工作区：不重载，保持当前窗口，让 workbench 恢复已保存的窗口状态
+                            return false;
                         }
                     },
 
