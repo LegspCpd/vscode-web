@@ -297,8 +297,13 @@ function getHtml() {
       var cb = pending[msg.id]; delete pending[msg.id];
       cb({ token: msg.token });
     } else if (msg.type === 'loginUrl') {
-      // 用浏览器原生 window.open 打开 GitHub 授权页（webview 是浏览器上下文，一定可靠）
-      var w = window.open(msg.url, '_blank');
+      // 用浏览器居中的弹窗打开 GitHub 授权页（验证完自动关闭，主页面自动刷新）
+      var wdt = 640, hgt = 780;
+      var left = Math.max(0, (window.screen.width - wdt) / 2);
+      var top = Math.max(0, (window.screen.height - hgt) / 2);
+      var w = window.open(msg.url, 'gh-oauth',
+        'width=' + wdt + ',height=' + hgt + ',left=' + left + ',top=' + top +
+        ',resizable=yes,scrollbars=yes,menubar=no,status=no');
       if (!w) { window.location.href = msg.url; }
     }
   });

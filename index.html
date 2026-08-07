@@ -276,6 +276,14 @@
 
                 console.log('[vscode-web] workbench.create() invoked.');
 
+                // 监听 OAuth 登录完成：弹窗授权后 callback 写入 localStorage['gh_secret_gh_auth']，
+                // 这里通过 storage 事件自动刷新页面，使扩展重新激活并读取 token 显示仓库。
+                window.addEventListener('storage', function (ev) {
+                    if (ev.key === 'gh_secret_gh_auth' && ev.newValue) {
+                        window.location.reload();
+                    }
+                });
+
                 // 窄屏汉堡菜单交互：点击展开/收起，点击外部关闭
                 const hamburger = document.getElementById('menu-hamburger');
                 if (hamburger) {

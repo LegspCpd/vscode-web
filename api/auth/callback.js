@@ -6,8 +6,11 @@ const clientId = process.env.GITHUB_CLIENT_ID;
 const clientSecret = process.env.GITHUB_CLIENT_SECRET;
 
 function html(token, origin) {
-  // 同源页面直接把 token 写入 localStorage 后跳回首页
+  // 同源页面直接把 token 写入 localStorage，然后：
+  // - 若在弹窗中打开（window.opener），通知父窗口并自动关闭
+  // - 否则跳回首页
   const safeToken = JSON.stringify(token || '');
+  const safeOrigin = JSON.stringify(origin);
   return `<html><body><script>
     (function(){
       try {
@@ -17,7 +20,13 @@ function html(token, origin) {
         // secretStorageProvider 键：供扩展宿主 context.secrets.get('gh_auth') 读取
         localStorage.setItem('gh_secret_gh_auth', t || '');
       } catch (e) {}
-      window.location.replace(${JSON.stringify(origin)} + "/");
+      if (window.opener) {
+        // 弹窗模式：通知父窗口登录完成，然后自动关闭
+        try { window.opener.postMessage({ type: 'gh-oauth-done', token: t }, '*'); } catch (e) {}
+        window.close();
+      } else {
+        window.location.replace(${safeOrigin} + "/");
+      }
     })();
   </script></body></html>`;
 }
