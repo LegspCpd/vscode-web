@@ -21,7 +21,8 @@
         {
           "id": "githubrepos",
           "title": "GitHub",
-          "icon": "$(github)"
+          "icon": "$(github)",
+          "when": "ghFeaturesEnabled"
         }
       ]
     },
@@ -30,7 +31,8 @@
         {
           "id": "githubReposView",
           "name": "GitHub 仓库",
-          "type": "webview"
+          "type": "webview",
+          "when": "ghFeaturesEnabled"
         }
       ]
     }

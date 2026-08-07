@@ -378,7 +378,34 @@ function getHtml() {
 </html>`;
 }
 
-function activate(context) {
+// 读取运行时配置（环境变量 GH-BATE-OPEN=turn 时开启 GitHub 功能，默认关闭）
+async function isGitHubOpen(context) {
+    try {
+        // 用扩展 URI 推断站点 origin（扩展运行在 web worker，无 location 全局变量）
+        const base = new URL('/api/config', context.extensionUri).href;
+        const res = await fetch(base);
+        if (res.ok) {
+            const cfg = await res.json();
+            return !!cfg.githubOpen;
+        }
+    } catch (e) {
+        // 读取失败则按关闭处理
+    }
+    return false;
+}
+
+async function activate(context) {
+    // 判断 GitHub 功能是否开启（默认关闭，环境变量 GH-BATE-OPEN=turn 开启）
+    const githubOpen = await isGitHubOpen(context);
+
+    // 设置 context key，控制活动栏 GitHub 图标的显示/隐藏
+    await vscode.commands.executeCommand('setContext', 'ghFeaturesEnabled', githubOpen);
+
+    if (!githubOpen) {
+        // 功能未开启：不注册 GitHub 视图
+        return;
+    }
+
     const provider = new GitHubViewProvider(context);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider('githubReposView', provider, {
