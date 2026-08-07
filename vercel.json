@@ -28,7 +28,7 @@
       "destination": "/code-stable.png"
     },
     {
-      "source": "/((?!api/|extensions/|vs/|media/|nls\\.|usb2\\.ico|code-stable\\.png|index\\.html).*)",
+      "source": "/((?!api/|extensions/|node_modules/|vs/|media/|nls\\.|usb2\\.ico|code-stable\\.png|index\\.html).*)",
       "destination": "/index.html"
     }
   ]

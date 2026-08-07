@@ -1,0 +1,57 @@
+{
+  "name": "language-basics",
+  "displayName": "Language Basics (Syntax Highlighting)",
+  "description": "Provides syntax highlighting for common languages via TextMate grammars",
+  "version": "1.0.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.70.0"
+  },
+  "extensionKind": [
+    "web"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      { "id": "javascript", "aliases": ["JavaScript", "js"], "extensions": [".js", ".mjs", ".cjs", ".jsx"], "configuration": "./language-configuration.json" },
+      { "id": "typescript", "aliases": ["TypeScript", "ts"], "extensions": [".ts", ".tsx", ".mts", ".cts"], "configuration": "./language-configuration.json" },
+      { "id": "json", "aliases": ["JSON", "json"], "extensions": [".json", ".jsonc", ".webmanifest"], "configuration": "./language-configuration.json" },
+      { "id": "html", "aliases": ["HTML", "html"], "extensions": [".html", ".htm", ".shtml", ".xhtml"], "configuration": "./language-configuration.json" },
+      { "id": "css", "aliases": ["CSS", "css"], "extensions": [".css"], "configuration": "./language-configuration.json" },
+      { "id": "python", "aliases": ["Python", "py"], "extensions": [".py", ".pyw", ".pyi"], "configuration": "./language-configuration.json" },
+      { "id": "markdown", "aliases": ["Markdown", "md"], "extensions": [".md", ".markdown", ".mdown", ".mdwn"], "configuration": "./language-configuration.json" },
+      { "id": "yaml", "aliases": ["YAML", "yaml"], "extensions": [".yaml", ".yml"], "configuration": "./language-configuration.json" },
+      { "id": "cpp", "aliases": ["C++", "C"], "extensions": [".cpp", ".cc", ".cxx", ".hpp", ".hh", ".hxx", ".h", ".c"], "configuration": "./language-configuration.json" },
+      { "id": "go", "aliases": ["Go", "go"], "extensions": [".go"], "configuration": "./language-configuration.json" },
+      { "id": "rust", "aliases": ["Rust", "rs"], "extensions": [".rs"], "configuration": "./language-configuration.json" },
+      { "id": "php", "aliases": ["PHP", "php"], "extensions": [".php", ".php3", ".php4", ".php5", ".phtml"], "configuration": "./language-configuration.json" },
+      { "id": "shellscript", "aliases": ["Shell Script", "shell", "sh", "bash"], "extensions": [".sh", ".bash", ".zsh", ".ksh"], "configuration": "./language-configuration.json" },
+      { "id": "java", "aliases": ["Java", "java"], "extensions": [".java"], "configuration": "./language-configuration.json" },
+      { "id": "csharp", "aliases": ["C#", "csharp", "cs"], "extensions": [".cs"], "configuration": "./language-configuration.json" },
+      { "id": "xml", "aliases": ["XML", "xml"], "extensions": [".xml", ".xsd", ".xsl", ".svg"], "configuration": "./language-configuration.json" },
+      { "id": "sql", "aliases": ["SQL", "sql"], "extensions": [".sql"], "configuration": "./language-configuration.json" }
+    ],
+    "grammars": [
+      { "language": "javascript", "scopeName": "source.js", "path": "./syntaxes/JavaScript.tmLanguage.json" },
+      { "language": "typescript", "scopeName": "source.ts", "path": "./syntaxes/TypeScript.tmLanguage.json" },
+      { "language": "json", "scopeName": "source.json", "path": "./syntaxes/JSON.tmLanguage.json" },
+      { "language": "html", "scopeName": "text.html.basic", "path": "./syntaxes/html.tmLanguage.json" },
+      { "language": "css", "scopeName": "source.css", "path": "./syntaxes/css.tmLanguage.json" },
+      { "language": "python", "scopeName": "source.python", "path": "./syntaxes/python.tmLanguage.json" },
+      { "language": "markdown", "scopeName": "text.html.markdown", "path": "./syntaxes/markdown.tmLanguage.json" },
+      { "language": "yaml", "scopeName": "source.yaml", "path": "./syntaxes/yaml.tmLanguage.json" },
+      { "language": "cpp", "scopeName": "source.cpp", "path": "./syntaxes/cpp.tmLanguage.json" },
+      { "language": "go", "scopeName": "source.go", "path": "./syntaxes/go.tmLanguage.json" },
+      { "language": "rust", "scopeName": "source.rust", "path": "./syntaxes/rust.tmLanguage.json" },
+      { "language": "php", "scopeName": "source.php", "path": "./syntaxes/php.tmLanguage.json" },
+      { "language": "shellscript", "scopeName": "source.shell", "path": "./syntaxes/shell.tmLanguage.json" },
+      { "language": "java", "scopeName": "source.java", "path": "./syntaxes/java.tmLanguage.json" },
+      { "language": "csharp", "scopeName": "source.cs", "path": "./syntaxes/csharp.tmLanguage.json" },
+      { "language": "xml", "scopeName": "text.xml", "path": "./syntaxes/xml.tmLanguage.json" },
+      { "language": "sql", "scopeName": "source.sql", "path": "./syntaxes/sql.tmLanguage.json" }
+    ]
+  }
+}

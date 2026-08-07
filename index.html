@@ -263,14 +263,16 @@
                     // GitHub 视图的 API 请求由扩展（扩展宿主同源）代理，见 extensions/gh-views/extension.js
                     webviewEndpoint: undefined,
 
-                    // 本地内置扩展：GitHub 原生侧边栏视图（注册进资源管理器所在的活动栏/侧边栏容器）
+                    // 本地内置扩展：GitHub 原生侧边栏视图 + 语言基础（语法高亮等）
                     additionalBuiltinExtensions: (function () {
-                        var u = new URL('/extensions/gh-views', location.origin);
-                        return [{
-                            scheme: u.protocol.replace(':', ''),
-                            authority: u.host,
-                            path: u.pathname
-                        }];
+                        function ext(path) {
+                            var u = new URL(path, location.origin);
+                            return { scheme: u.protocol.replace(':', ''), authority: u.host, path: u.pathname };
+                        }
+                        return [
+                            ext('/extensions/gh-views'),
+                            ext('/extensions/language-basics')
+                        ];
                     })()
                 });
 
