@@ -162,19 +162,29 @@
             // 从而避免语言包作为内置扩展加载时反复请求不存在的 package.nls.json。
 
             // 密钥存储 provider（用于安全持久化 GitHub token 等敏感信息）
-            // 基于 localStorage 实现：扩展 context.secrets 与 OAuth 回调共用键 gh_secret_<key>，
-            // 从而扩展扩展宿主（同源）能读取 OAuth 回调写入的 GitHub token。
+            // 基于 localStorage 实现。VS Code 的 secretStorageService 会把扩展 key 包装成
+            // {"extensionId":"...","key":"xxx"} 的 JSON 字符串传入本 provider，
+            // 因此这里需从 JSON 中提取真正的 key，与 OAuth 回调写入的 gh_secret_<key> 保持一致。
             const secretStorageProvider = (() => {
                 const PREFIX = 'gh_secret_';
+                function realKey(key) {
+                    if (typeof key === 'string' && key.indexOf('"key"') !== -1) {
+                        try {
+                            const parsed = JSON.parse(key);
+                            if (parsed && parsed.key) return parsed.key;
+                        } catch (e) {}
+                    }
+                    return key;
+                }
                 return {
                     async get(key) {
-                        try { return localStorage.getItem(PREFIX + key) || undefined; } catch (e) { return undefined; }
+                        try { return localStorage.getItem(PREFIX + realKey(key)) || undefined; } catch (e) { return undefined; }
                     },
                     async set(key, value) {
-                        try { localStorage.setItem(PREFIX + key, value); } catch (e) {}
+                        try { localStorage.setItem(PREFIX + realKey(key), value); } catch (e) {}
                     },
                     async delete(key) {
-                        try { localStorage.removeItem(PREFIX + key); } catch (e) {}
+                        try { localStorage.removeItem(PREFIX + realKey(key)); } catch (e) {}
                     }
                 };
             })();
