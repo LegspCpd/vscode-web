@@ -6,7 +6,7 @@
 const vscode = require('vscode');
 
 class GitHubViewProvider {
-    constructor(context) { this._ctx = context; }
+    constructor(context) { this._ctx = context; this._currentFile = null; }
 
     resolveWebviewView(webviewView, context, token) {
         this._view = webviewView;
@@ -36,6 +36,12 @@ class GitHubViewProvider {
                 } else if (msg.type === 'getToken') {
                     const t = await this._ctx.secrets.get('gh_auth');
                     wv.postMessage({ type: 'getTokenResult', id: msg.id, token: t || null });
+                } else if (msg.type === 'openFile') {
+                    // 在主编辑器打开文件（用户在主界面写代码处编辑）
+                    await this._openInEditor(msg);
+                } else if (msg.type === 'save') {
+                    const r = await this._saveCurrent();
+                    wv.postMessage({ type: 'saveResult', ok: r.ok, message: r.message });
                 }
             } catch (e) {
                 wv.postMessage({ type: 'error', message: String((e && e.message) || e) });
@@ -77,6 +83,78 @@ class GitHubViewProvider {
         const url = 'https://github.com/login/oauth/authorize?client_id=' + clientId +
             '&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=repo&state=' + state;
         return url;
+    }
+
+    // 在主编辑器打开 GitHub 文件（用户在主界面写代码处编辑，而非侧边栏小编辑框）
+    async _openInEditor(msg) {
+        const repo = msg.repo, path = msg.path, branch = msg.branch;
+        const res = await this._proxyApi('GET', '/repos/' + repo + '/contents/' + encodeURIComponent(path) + '?ref=' + branch);
+        if (!res.ok) {
+            if (this._view) this._view.webview.postMessage({ type: 'error', message: '无法读取文件：' + ((res.data && res.data.message) || res.status) });
+            return;
+        }
+        let content = '';
+        if (res.data.encoding === 'base64') content = this._decodeBase64(res.data.content);
+        else if (typeof res.data.content === 'string') content = res.data.content;
+        const doc = await vscode.workspace.openTextDocument({ content: content, language: this._guessLang(path) });
+        await vscode.window.showTextDocument(doc, { preview: true });
+        this._currentFile = { repo: repo, path: path, branch: branch, sha: res.data.sha };
+    }
+
+    // 把当前主编辑器文档内容保存回 GitHub
+    async _saveCurrent() {
+        if (!this._currentFile) return { ok: false, message: '未打开任何 GitHub 文件' };
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) return { ok: false, message: '没有活动的编辑器' };
+        const content = editor.document.getText();
+        const f = this._currentFile;
+        const body = { message: 'Update ' + f.path, content: this._encodeBase64(content), branch: f.branch };
+        if (f.sha) body.sha = f.sha;
+        const res = await this._proxyApi('PUT', '/repos/' + f.repo + '/contents/' + encodeURIComponent(f.path), body);
+        if (res.ok) {
+            if (res.data && res.data.content && res.data.content.sha) this._currentFile.sha = res.data.content.sha;
+            return { ok: true, message: '已保存到 ' + f.repo + ':' + f.path };
+        }
+        return { ok: false, message: '保存失败：' + ((res.data && res.data.message) || res.status) };
+    }
+
+    _guessLang(path) {
+        const p = path.toLowerCase();
+        const map = {
+            '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript', '.jsx': 'javascript',
+            '.ts': 'typescript', '.tsx': 'typescript',
+            '.json': 'json', '.jsonc': 'json',
+            '.html': 'html', '.htm': 'html',
+            '.css': 'css',
+            '.py': 'python', '.pyw': 'python', '.pyi': 'python',
+            '.md': 'markdown', '.markdown': 'markdown',
+            '.yaml': 'yaml', '.yml': 'yaml',
+            '.c': 'cpp', '.cpp': 'cpp', '.cc': 'cpp', '.h': 'cpp', '.hpp': 'cpp', '.hxx': 'cpp',
+            '.go': 'go', '.rs': 'rust', '.php': 'php',
+            '.sh': 'shellscript', '.bash': 'shellscript', '.zsh': 'shellscript',
+            '.java': 'java', '.cs': 'csharp',
+            '.xml': 'xml', '.svg': 'xml', '.sql': 'sql'
+        };
+        for (const ext in map) if (p.endsWith(ext)) return map[ext];
+        return 'plaintext';
+    }
+
+    _decodeBase64(s) {
+        try {
+            const bin = atob(s.replace(/\s/g, ''));
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return new TextDecoder('utf-8').decode(bytes);
+        } catch (e) { return s; }
+    }
+
+    _encodeBase64(s) {
+        try {
+            const bytes = new TextEncoder().encode(s);
+            let bin = '';
+            bytes.forEach(b => { bin += String.fromCharCode(b); });
+            return btoa(bin);
+        } catch (e) { return btoa(unescape(encodeURIComponent(s))); }
     }
 }
 
@@ -126,7 +204,7 @@ function getHtml() {
 </style>
 </head>
 <body>
-  <div class="tb"><span class="title">GitHub 仓库</span><div><button class="btn" id="refresh">↻</button></div></div>
+  <div class="tb"><span class="title">GitHub 仓库</span><div><button class="btn" id="save">保存当前</button><button class="btn" id="refresh">↻</button></div></div>
   <div class="auth" id="auth"><button class="btn btn-primary login" id="login">↗ 使用 GitHub 登录</button></div>
   <div class="picker" id="picker" hidden><div class="repos" id="repos"></div></div>
   <div class="tabs" id="tabs" hidden><button class="tab on" data-t="tree">文件</button><button class="tab" data-t="prev">内容</button></div>
@@ -234,39 +312,14 @@ function getHtml() {
     if (sorted.length === 0) treeEl.innerHTML += '<div class="empty">（空仓库）</div>';
   }
 
-  async function openFile(path, sha) {
+  function openFile(path, sha) {
     curPath = path; curSha = sha;
-    tabsEl.hidden = false; prevEl.hidden = false; treeEl.hidden = true;
-    setTab('prev');
-    prevEl.innerHTML = '<pre>加载 ' + path + ' …</pre>';
-    var c = await gh('/repos/' + currentRepo + '/contents/' + encodeURIComponent(path) + '?ref=' + currentBranch);
-    if (!c.ok) { prevEl.innerHTML = '<pre>无法读取文件：' + ((c.data && c.data.message) || c.status) + '</pre>'; return; }
-    var content = c.data.encoding === 'base64' ? decodeBase64(c.data.content) : (typeof c.data.content === 'string' ? c.data.content : '');
-    renderEditor(path, content, c.data.sha);
-  }
-
-  function renderEditor(path, content, sha) {
-    curSha = sha;
-    prevEl.innerHTML = '';
-    var title = document.createElement('div'); title.className = 'et'; title.textContent = path;
-    var ed = document.createElement('div'); ed.className = 'ed';
-    var ta = document.createElement('textarea'); ta.value = content; ta.spellcheck = false;
-    var row = document.createElement('div'); row.className = 'ea';
-    var save = document.createElement('button'); save.className = 'btn btn-primary'; save.textContent = '保存并提交到 GitHub';
-    var back = document.createElement('button'); back.className = 'btn'; back.textContent = '返回文件树';
-    back.addEventListener('click', function () { prevEl.hidden = true; treeEl.hidden = false; setTab('tree'); });
-    save.addEventListener('click', function () { saveFile(path, ta.value, sha); });
-    row.appendChild(save); row.appendChild(back);
-    ed.appendChild(ta); ed.appendChild(row);
-    prevEl.appendChild(title); prevEl.appendChild(ed);
-  }
-
-  async function saveFile(path, newContent, oldSha) {
-    setStatus('正在提交…');
-    var payload = { message: 'Update ' + path, content: encodeBase64(newContent), branch: currentBranch };
-    if (oldSha) payload.sha = oldSha;
-    var r = await gh('/repos/' + currentRepo + '/contents/' + encodeURIComponent(path), { method: 'PUT', body: payload });
-    setStatus(!r.ok ? ('提交失败：' + ((r.data && r.data.message) || r.status)) : ('已提交 ' + path));
+    // 在主编辑器打开（扩展侧 openTextDocument + showTextDocument），不在此小面板渲染
+    setStatus('正在主编辑器打开 ' + path + ' …');
+    send('openFile', { repo: currentRepo, path: path, branch: currentBranch, sha: sha });
+    // 切回文件树视图，把编辑区交给主编辑器
+    tabsEl.hidden = true; treeEl.hidden = false; prevEl.hidden = true;
+    setTab('tree');
   }
 
   function decodeBase64(s) {
@@ -305,12 +358,18 @@ function getHtml() {
         'width=' + wdt + ',height=' + hgt + ',left=' + left + ',top=' + top +
         ',resizable=yes,scrollbars=yes,menubar=no,status=no');
       if (!w) { window.location.href = msg.url; }
+    } else if (msg.type === 'saveResult') {
+      setStatus(msg.message);
+    } else if (msg.type === 'error') {
+      setStatus(msg.message || '出错');
     }
   });
 
   loginBtn.addEventListener('click', function () { send('login'); });
   refreshBtn.addEventListener('click', function () { refreshView(); });
   document.querySelectorAll('.tab').forEach(function (t) { t.addEventListener('click', function () { setTab(t.dataset.t); }); });
+  var saveBtn = document.getElementById('save');
+  if (saveBtn) saveBtn.addEventListener('click', function () { setStatus('正在保存到 GitHub …'); send('save'); });
 
   refreshView();
 })();
@@ -320,9 +379,15 @@ function getHtml() {
 }
 
 function activate(context) {
+    const provider = new GitHubViewProvider(context);
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider('githubReposView', new GitHubViewProvider(context), {
+        vscode.window.registerWebviewViewProvider('githubReposView', provider, {
             webviewOptions: { retainContextWhenHidden: true }
+        }),
+        // 命令：把当前主编辑器内容保存到 GitHub（用户也可用命令面板执行）
+        vscode.commands.registerCommand('github.saveFile', async () => {
+            const r = await provider._saveCurrent();
+            vscode.window.showInformationMessage(r.message);
         })
     );
 }
