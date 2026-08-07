@@ -176,9 +176,26 @@
                     }
                     return key;
                 }
+                // 读取候选键：优先 realKey(key)，再兜底 gh_auth，最后原始 key
+                function candidateKeys(key) {
+                    const rk = realKey(key);
+                    const keys = [];
+                    if (rk) keys.push(PREFIX + rk);
+                    if (rk !== 'gh_auth') keys.push(PREFIX + 'gh_auth');
+                    if (key !== rk) keys.push(PREFIX + key);
+                    return keys;
+                }
                 return {
                     async get(key) {
-                        try { return localStorage.getItem(PREFIX + realKey(key)) || undefined; } catch (e) { return undefined; }
+                        try {
+                            const keys = candidateKeys(key);
+                            for (const k of keys) {
+                                const v = localStorage.getItem(k);
+                                if (v) { console.log('[gh-secret] get hit key=' + k); return v; }
+                            }
+                            console.log('[gh-secret] get miss key=' + key + ' candidates=' + JSON.stringify(keys));
+                            return undefined;
+                        } catch (e) { return undefined; }
                     },
                     async set(key, value) {
                         try { localStorage.setItem(PREFIX + realKey(key), value); } catch (e) {}
