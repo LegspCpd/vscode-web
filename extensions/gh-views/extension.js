@@ -26,8 +26,10 @@ class GitHubViewProvider {
                     const data = await this._proxyApi(msg.method, msg.url, msg.body);
                     wv.postMessage({ type: 'apiResult', id, ok: data.ok, status: data.status, data: data.data });
                 } else if (msg.type === 'login') {
-                    await this._login();
-                    wv.postMessage({ type: 'loginStarted' });
+                    // 构造授权 URL 返回给 webview，由 webview 用 window.open 打开（web 扩展的
+                    // openExternal 在 webview 沙箱中可能被阻止，导致授权页弹不出来）
+                    const loginUrl = await this._login();
+                    wv.postMessage({ type: 'loginUrl', url: loginUrl });
                 } else if (msg.type === 'logout') {
                     await this._ctx.secrets.delete('gh_auth');
                     wv.postMessage({ type: 'logoutDone' });
@@ -74,7 +76,7 @@ class GitHubViewProvider {
         const redirectUri = origin + '/api/auth/callback';
         const url = 'https://github.com/login/oauth/authorize?client_id=' + clientId +
             '&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=repo&state=' + state;
-        await vscode.env.openExternal(vscode.Uri.parse(url));
+        return url;
     }
 }
 
@@ -84,7 +86,7 @@ function getHtml() {
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'none'; style-src 'unsafe-inline'; img-src * data:; script-src 'unsafe-inline'; connect-src 'self' http: https:;">
+  content="default-src 'none'; style-src 'unsafe-inline'; img-src * data:; script-src 'unsafe-inline'; connect-src 'self' http: https:; frame-src * http: https:;">
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:#252526;color:#cccccc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Microsoft YaHei',sans-serif;font-size:13px}
@@ -294,6 +296,10 @@ function getHtml() {
     } else if (msg.type === 'getTokenResult' && pending[msg.id]) {
       var cb = pending[msg.id]; delete pending[msg.id];
       cb({ token: msg.token });
+    } else if (msg.type === 'loginUrl') {
+      // 用浏览器原生 window.open 打开 GitHub 授权页（webview 是浏览器上下文，一定可靠）
+      var w = window.open(msg.url, '_blank');
+      if (!w) { window.location.href = msg.url; }
     }
   });
 
