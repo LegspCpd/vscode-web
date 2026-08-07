@@ -66,7 +66,9 @@ class GitHubViewProvider {
         const clientId = 'Ov23liDtRHzVSs0Pued6';
         const origin = (typeof location !== 'undefined' && location.origin) || '';
         const state = 'gh_' + Date.now();
-        const redirectUri = origin + '/api/auth/callback?origin=' + encodeURIComponent(origin) + '&state=' + state;
+        // redirect_uri 保持干净 URL（无 query）。GitHub 会在其后追加 ?code=..&state=..
+        // origin/state 不再编码进 redirect_uri，避免 GitHub 追加参数时 URL 编码错乱。
+        const redirectUri = origin + '/api/auth/callback';
         const url = 'https://github.com/login/oauth/authorize?client_id=' + clientId +
             '&redirect_uri=' + encodeURIComponent(redirectUri) + '&scope=repo&state=' + state;
         await vscode.env.openExternal(vscode.Uri.parse(url));

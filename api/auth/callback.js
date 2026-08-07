@@ -34,7 +34,8 @@ export default async function handler(req, res) {
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
   const error = url.searchParams.get('error');
-  const origin = url.searchParams.get('origin') || '';
+  // origin 从请求 Host 推断（redirect_uri 保持干净 URL，GitHub 在其后追加 ?code&state）
+  const origin = req.headers.host ? 'https://' + req.headers.host : '';
 
   if (error) {
     return res.status(200).end(html(null, origin));
