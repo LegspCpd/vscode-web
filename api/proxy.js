@@ -10,9 +10,15 @@ function applyCors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, If-Match, X-Requested-With');
 }
 
-// 把 "/api/proxy" 前缀去掉，得到真实 GitHub API 路径
+// 把请求解析为真实 GitHub API 路径。
+// Vercel 的 api/proxy.js 只精确匹配 "/api/proxy"，不匹配子路径，因此前端用
+// query 传 path（?path=/user/repos...），这里优先读 query；否则回退解析 pathname。
 function toApiPath(url, reqHost) {
   const u = new URL(url, 'https://' + (reqHost || 'localhost'));
+  const qPath = u.searchParams.get('path');
+  if (qPath) {
+    return GITHUB_API + qPath;
+  }
   let path = decodeURIComponent(u.pathname);
   const prefix = '/api/proxy';
   if (path.startsWith(prefix)) {

@@ -46,11 +46,12 @@ class GitHubViewProvider {
         const headers = {};
         if (token) headers['Authorization'] = 'Bearer ' + token;
         if (body !== undefined) headers['Content-Type'] = 'application/json';
-        // 用扩展 URI 推断站点 origin（扩展运行在 web worker，无 location 全局变量，
-        // 不能依赖 location.origin；extensionUri 形如 https://<site>/extensions/gh-views）
+        // 用扩展 URI 推断站点 origin（扩展运行在 web worker，无 location 全局变量）
+        // 用 query 传 path，确保精确路由到 /api/proxy（Vercel 的 api/proxy.js 不匹配子路径）
         const base = new URL('/api/proxy', this._ctx.extensionUri).href;
+        const apiUrl = base + '?path=' + encodeURIComponent(url);
         try {
-            const res = await fetch(base + url, {
+            const res = await fetch(apiUrl, {
                 method: method || 'GET',
                 headers,
                 body: body !== undefined ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined
